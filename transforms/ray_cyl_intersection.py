@@ -97,6 +97,7 @@ def tf_ray_plane(rays, rmat, tvec):
     # Detector normal, rotated about its origin.
     nhat = tf.convert_to_tensor(rmat[:, 2], dtype='float32')
     tvec = tf.convert_to_tensor(tvec, dtype='float32')
+    rmat = tf.convert_to_tensor(rmat.astype('float32'), dtype='float32')
 
     rays = np.atleast_2d(rays)
     rays = tf.convert_to_tensor(rays, dtype='float32')  # shape (npts, 3)
