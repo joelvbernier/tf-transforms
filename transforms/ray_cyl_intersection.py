@@ -94,29 +94,27 @@ def tf_ray_plane(rays, rmat, tvec):
 
     """
 
-    # Detector normal, rotated about its origin.
-    nhat = tf.convert_to_tensor(rmat[:, 2], dtype='float32')
-    tvec = tf.convert_to_tensor(tvec, dtype='float32')
-    rmat = tf.convert_to_tensor(rmat.astype('float32'), dtype='float32')
+    # TODO(Frankie): Static type check to ensure that rmat, tvec, and ray
+    # are already type, `tf.tensor`.
 
-    rays = np.atleast_2d(rays)
-    rays = tf.convert_to_tensor(rays, dtype='float32')  # shape (npts, 3)
-    npts = len(rays)
-    numerator = tf.repeat(tf.tensordot(tvec, nhat, axes=1), npts)
+    # Detector normal, rotated about its origin.
+    # Detector normal, rotated about its origin.
+    nhat = rmat[:, 2]
+
+    numerator = tf.broadcast_to(tf.tensordot(tvec, nhat, axes=1), [tf.shape(rays)[0], 1])
     denominator = tf.tensordot(rays, nhat, axes=1)
-    tmp = numerator / denominator
+    tmp = numerator / tf.reshape(denominator, [tf.shape(rays)[0], 1])
 
     # Using `d_censor` to replace the two lines below
     # can_intersect = denominator < 0
     # output[can_intersect, :] = rays[can_intersect] * u.T
     d_censor = tf.scan(lambda a, x: 1.0 if x < 0 else np.nan, denominator)
-    tmp = tmp * d_censor
-    u = tf.stack([tmp, tmp, tmp], axis=1)
+    tmp = tmp * tf.reshape(d_censor, [tf.shape(rays)[0], 1])
+    u = tf.broadcast_to(tmp, [tf.shape(rays)[0], 3])
     output = rays * u
 
     # We only take the x, y, the detector plane coordinates.
     return tf.tensordot(output - tvec, rmat, axes=[[1],[1]])[:, :2]
-
 
 
 
