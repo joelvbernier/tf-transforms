@@ -98,25 +98,38 @@ def tf_ray_plane(rays, rmat, tvec):
     # are already type, `tf.tensor`.
 
     # Detector normal, rotated about its origin.
-    # Detector normal, rotated about its origin.
     nhat = rmat[:, 2]
 
-    numerator = tf.broadcast_to(tf.tensordot(tvec, nhat, axes=1), [tf.shape(rays)[0], 1])
+    numerator = tf.broadcast_to(tf.tensordot(tvec, nhat, axes=1), [tf.shape(rays)[0]])
     denominator = tf.tensordot(rays, nhat, axes=1)
-    tmp = numerator / tf.reshape(denominator, [tf.shape(rays)[0], 1])
+    tmp = numerator / denominator
 
-    # Using `d_censor` to replace the two lines below
-    # can_intersect = denominator < 0
-    # output[can_intersect, :] = rays[can_intersect] * u.T
-    d_censor = tf.scan(lambda a, x: 1.0 if x < 0 else np.nan, denominator)
-    tmp = tmp * tf.reshape(d_censor, [tf.shape(rays)[0], 1])
-    u = tf.broadcast_to(tmp, [tf.shape(rays)[0], 3])
-    output = rays * u
+    cannot_intersect_idx = tf.where(denominator > 0)
+    # Equivilent of
+    # output[cannot_intersect, :] = np.nan
+    tmp = tf.tensor_scatter_nd_update(tmp,
+                                      cannot_intersect_idx,
+                                      tf.ones(cannot_intersect_idx.shape[0]) * np.nan)
+    u = tf.broadcast_to(tmp, [3, tf.shape(rays)[0]])
+    output = rays * tf.transpose(u)
 
     # We only take the x, y, the detector plane coordinates.
     return tf.tensordot(output - tvec, rmat, axes=[[1],[1]])[:, :2]
 
+def gradient_ray_plane(rays, rmat, tvec):
+  # Call `GradientTape` with `persistent=True` if we want to
+  # keep the gradient after calling it. If that's the case,
+  # an explicit destruction by calling `del` on `tape` is needed.
+  with tf.GradientTape() as tape:
+    tape.watch(rays)
+    intersections = tf_ray_plane(rays, rmat, tvec)
+  """ Take the derivative of the 'tf_ray_plane' with respect
+  to the input variables, 'rays' evaluated at the
+  'rays.'
 
+  See: https://www.tensorflow.org/api_docs/python/tf/GradientTape
+  """
+  return tape.gradient(intersections, rays)
 
 def ray_cylinder(rays, radius, rmat, tvec):
     """
