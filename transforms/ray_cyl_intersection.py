@@ -105,7 +105,7 @@ def tf_ray_plane(rays, rmat, tvec):
     tmp = numerator / denominator
 
     cannot_intersect_idx = tf.where(denominator > 0)
-    # Equivilent of
+    # Equivilent of...
     # output[cannot_intersect, :] = np.nan
     tmp = tf.tensor_scatter_nd_update(tmp,
                                       cannot_intersect_idx,
@@ -113,8 +113,9 @@ def tf_ray_plane(rays, rmat, tvec):
     u = tf.broadcast_to(tmp, [3, tf.shape(rays)[0]])
     output = rays * tf.transpose(u)
 
+    # tf.tensordot with axis [[1], [0]] is just matrix multiply.
     # We only take the x, y, the detector plane coordinates.
-    return tf.tensordot(output - tvec, rmat, axes=[[1],[1]])[:, :2]
+    return tf.tensordot(output - tvec, rmat, axes=[[1],[0]])[:, :2]
 
 def gradient_ray_plane(rays, rmat, tvec):
   # Call `GradientTape` with `persistent=True` if we want to
