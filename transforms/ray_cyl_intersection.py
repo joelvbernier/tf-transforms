@@ -117,6 +117,36 @@ def tf_ray_plane(rays, rmat, tvec):
     # We only take the x, y, the detector plane coordinates.
     return tf.tensordot(output - tvec, rmat, axes=[[1],[0]])[:, :2]
 
+def test_ray_plane():
+    EPS = 0.001
+
+    import numpy as np
+    num_samples = 100
+    random_angles = np.random.uniform(-np.pi, np.pi,
+                                      (num_samples, 3)).astype(np.float32)
+
+    rmats = rotation_matrix_3d.from_euler(random_angles)
+
+    for i in np.arange(num_samples):
+        classic_result = ray_plane(rays.numpy(), rmats[i, :, :].numpy(), tvec.numpy())
+        tf_result = tf_ray_plane(rays, rmats[i, :, :], tvec).numpy()
+
+        # Assert that the intersected are the same
+        classic_intersected = np.logical_not(np.isnan(classic_result).any(axis=1))
+        tf_intersected = np.logical_not(np.isnan(tf_result).any(axis=1))
+
+        assert not np.any(np.logical_xor(classic_intersected, tf_intersected)), 'Failed, inteserction check not identical'
+        classic_result = classic_result[np.ix_(classic_intersected, [0, 1])]
+        tf_result = tf_result[np.ix_(tf_intersected, [0, 1])]
+
+        res = classic_result - tf_result
+        # Assert that the different in magnitude is small
+        l = np.linalg.norm(res[:])
+        print(f'residual {l}')
+        assert l < EPS, 'Failed, coorindates check not identical'
+
+    print('Pass')
+
 def gradient_ray_plane(rays, rmat, tvec):
   # Call `GradientTape` with `persistent=True` if we want to
   # keep the gradient after calling it. If that's the case,
